@@ -19,7 +19,7 @@
 <body>
 
     <div class="stats">
-        Idő: <span id="timer">00:00</span> | Pont: <span id="score">0</span>/2
+        Idő: <span id="timer">00:00</span> | Pont: <span id="score">0</span>/6
     </div>
 
     <h1>Lillafüred Vadászat</h1>
@@ -39,6 +39,36 @@
         <input type="number" id="ans2">
         <button onclick="checkAnswer(2, 2)">OK</button>
     </div>
+    <!-- 3. Állomás -->
+<div id="target3" class="card hidden">
+    <h3>📍 3. Állomás: Hírességek táblája</h3>
+    <p>Melyik miniszterelnökünk neve szerepel a márványtáblán?</p>
+    <input type="text" id="ans3" style="width: 150px;" placeholder="Vezetéknév">
+    <button onclick="checkAnswer(3, 'Bethlen')">OK</button>
+</div>
+
+<!-- 4. Állomás -->
+<div id="target4" class="card hidden">
+    <h3>📍 4. Állomás: Anna-barlang kút</h3>
+    <p>Milyen alakzatot formáz a kőcsobogó teteje? (Mire hasonlít?)</p>
+    <input type="text" id="ans4" style="width: 150px;" placeholder="Pl. gomba, csúcs...">
+    <button onclick="checkAnswer(4, 'szikla')">OK</button>
+</div>
+
+<!-- 5. Állomás -->
+<div id="target5" class="card hidden">
+    <h3>📍 5. Állomás: Kisvasút</h3>
+    <p>Mit ábrázol a dombormű: vonatot, embert vagy címert?</p>
+    <input type="text" id="ans5" style="width: 150px;">
+    <button onclick="checkAnswer(5, 'vonatot')">OK</button>
+</div>
+<!-- 6. Állomás -->
+<div id="target6" class="card hidden">
+    <h3>📍 6. Állomás: Hámori-tó szigete</h3>
+    <p>Menj a csónakház melletti kis hídhoz! Mi áll a pici szigeten: szobor, lámpa vagy egy magányos fa?</p>
+    <input type="text" id="ans6" style="width: 150px;" placeholder="Válaszod...">
+    <button onclick="checkAnswer(6, 'lámpa')">OK</button>
+</div>
 
     <div id="final" class="card hidden">
         <h2>🎉 Küldetés teljesítve!</h2>
@@ -52,10 +82,15 @@
     <!-- Cseréld le a teljes <script> részt erre a finomított változatra -->
     <script>
     const targets = [
-        { id: 1, lat: 48.1094, lon: 20.6222, radius: 25 },
-        { id: 2, lat: 48.1101, lon: 20.6235, radius: 25 }
+    { id: 1, lat: 48.1094, lon: 20.6222, radius: 25 },
+    { id: 2, lat: 48.1101, lon: 20.6235, radius: 25 },
+    { id: 3, lat: 48.1104, lon: 20.6229, radius: 25 },
+    { id: 4, lat: 48.1100, lon: 20.6221, radius: 25 },
+    { id: 5, lat: 48.1115, lon: 20.6212, radius: 25 },
+    { id: 6, lat: 48.1120, lon: 20.6230, radius: 25 } // Hámori-tó sziget
     ];
 
+   
     let score = 0, startTime = null, timerInterval = null, totalSeconds = 0;
 
     function initGame() {
@@ -136,17 +171,21 @@
         window.speechSynthesis.speak(utterance);
     }
 
+   
     function checkAnswer(id, correct) {
-        if (document.getElementById('ans' + id).value == correct) {
-            score++;
-            document.getElementById('score').innerText = score;
-            document.getElementById('target' + id).classList.add('hidden');
-            playSound('success');
-            if (score === targets.length) finishGame();
-        } else {
-            alert("Próbáld újra!");
-        }
+    let userAns = document.getElementById('ans' + id).value.trim().toLowerCase();
+    let correctAns = String(correct).toLowerCase();
+
+    if (userAns.includes(correctAns)) { // Ha tartalmazza a kulcsszót, elfogadjuk
+        score++;
+        document.getElementById('score').innerText = score;
+        document.getElementById('target' + id).classList.add('hidden');
+        playSound('success');
+        if (score === targets.length) finishGame();
+    } else {
+        alert("Próbáld újra! Segítség: nézd meg közelebbről a táblát/alakzatot.");
     }
+}
 
     function finishGame() {
         clearInterval(timerInterval);
