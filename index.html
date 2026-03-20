@@ -75,42 +75,44 @@
         if (navigator.geolocation) {
             // iOS SPECIFIKUS: Különösen fontos a 'high accuracy' és a timeout beállítása
             navigator.geolocation.watchPosition(
-               pos => {
-                    const userLat = pos.coords.latitude;
-                    const userLon = pos.coords.longitude;
-                    const accuracy = Math.round(pos.coords.accuracy);
-    
-    // Itt cseréltük le a "Hiba" szót "Pontosság"-ra:
-                    document.getElementById('status').innerHTML = `GPS OK! <br><small>Pontosság: ${accuracy} méter</small>`;
-    
-    targets.forEach(t => {
-        const dist = getDistance(userLat, userLon, t.lat, t.lon);
-        if (dist < t.radius) {
-            const card = document.getElementById('target' + t.id);
-            if (card.classList.contains('hidden')) {
-                card.classList.remove('hidden');
-                startTimer();
-                
-                // REZGÉS: 200ms rezgés, ha állomáshoz érsz (Androidon és újabb iPhone-okon)
-                if (navigator.vibrate) navigator.vibrate(200); 
-                
-                playSound('found');
-                document.getElementById('status').innerText = "Állomás elérve!";
+    pos => {
+        const userLat = pos.coords.latitude;
+        const userLon = pos.coords.longitude;
+        const accuracy = Math.round(pos.coords.accuracy);
+        
+        // Kiírjuk a státuszt, a pontosságot ÉS a pontos koordinátákat is
+        document.getElementById('status').innerHTML = `
+            <span style="color: #00b894;">GPS OK!</span><br>
+            <small>Pontosság: ${accuracy} méter</small><br>
+            <small style="color: #636e72;">Pozíciód: ${userLat.toFixed(5)}, ${userLon.toFixed(5)}</small>
+        `;
+        
+        targets.forEach(t => {
+            const dist = getDistance(userLat, userLon, t.lat, t.lon);
+            if (dist < t.radius) {
+                const card = document.getElementById('target' + t.id);
+                if (card.classList.contains('hidden')) {
+                    card.classList.remove('hidden');
+                    startTimer();
+                    
+                    if (navigator.vibrate) navigator.vibrate(200); 
+                    
+                    playSound('found');
+                    document.getElementById('status').innerHTML += "<br><b>Állomás elérve!</b>";
+                }
             }
-        }
-    });
-},
+        });
+    },
+    err => {
+        let msg = "Hiba: ";
+        if (err.code === 1) msg += "Engedélyezd a GPS-t!";
+        else if (err.code === 2) msg += "Nincs jel!";
+        else msg += err.message;
+        document.getElementById('status').innerText = msg;
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+);
 
-                err => {
-                    let msg = "GPS hiba: ";
-                    if (err.code === 1) msg = "iOS hiba: Engedélyezd a helyzetet a Beállítások > Safari-ban!";
-                    else if (err.code === 3) msg = "Időtúllépés. Próbálj szabad ég alá menni!";
-                    document.getElementById('status').innerText = msg;
-                },
-                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-            );
-        }
-    }
 
     function playSound(type) {
         // iOS FIX: Mindig ellenőrizzük, hogy nincs-e "beragadva" a hangszintetizátor
