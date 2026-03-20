@@ -23,19 +23,8 @@
     </div>
 
     <h1>Lillafüred Vadászat</h1>
-    <button id="startBtn" onclick="initGame()">Játék indítása (Hang engedélyezése)</button>
-
-    <script>
-    function initGame() {
-      document.getElementById('startBtn').style.display = 'none';
-      // Egy néma hang lejátszása az engedélyezéshez
-      const utterance = new SpeechSynthesisUtterance("");
-      window.speechSynthesis.speak(utterance);
-      alert("Helymeghatározás és hang aktív! Indulhat a kaland!");
-      }
-    </script>
-
-    <p id="status">Várakozás GPS-re...</p>
+    <button id="startBtn" onclick="initGame()">Játék indítása (Hang és GPS engedélyezése)</button>
+    <p id="status">Várakozás indításra...</p>
 
     <div id="target1" class="card hidden">
         <h3>📍 1. Állomás: József Attila-szobor</h3>
@@ -68,6 +57,49 @@
 
         let score = 0, startTime = null, timerInterval = null, totalSeconds = 0;
 
+        function initGame() {
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('status').innerText = "GPS keresése...";
+            
+            // Hang aktiválása
+            const utterance = new SpeechSynthesisUtterance("Sikeres indítás");
+            utterance.lang = 'hu-HU';
+            window.speechSynthesis.speak(utterance);
+
+            // GPS indítása csak gombnyomás után (böngésző elvárás)
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(
+                    pos => {
+                        const userLat = pos.coords.latitude;
+                        const userLon = pos.coords.longitude;
+                        document.getElementById('status').innerText = `GPS OK! (Pontosság: ${Math.round(pos.coords.accuracy)}m)`;
+                        
+                        targets.forEach(t => {
+                            const dist = getDistance(userLat, userLon, t.lat, t.lon);
+                            if (dist < t.radius) {
+                                const card = document.getElementById('target' + t.id);
+                                if (card.classList.contains('hidden')) {
+                                    card.classList.remove('hidden');
+                                    startTimer();
+                                    playSound('found');
+                                }
+                            }
+                        });
+                    },
+                    err => {
+                        let msg = "Hiba: ";
+                        if (err.code === 1) msg += "Engedélyezd a GPS-t a lakat ikonnál!";
+                        else if (err.code === 2) msg += "Nincs jel (menj szabad ég alá!)";
+                        else msg += err.message;
+                        document.getElementById('status').innerText = msg;
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                );
+            } else {
+                document.getElementById('status').innerText = "Nincs GPS támogatás!";
+            }
+        }
+
         function startTimer() {
             if (startTime) return;
             startTime = Date.now();
@@ -80,52 +112,24 @@
         function formatTime(s) {
             return String(Math.floor(s/60)).padStart(2,'0') + ":" + String(s%60).padStart(2,'0');
         }
-        // Hanghatások lejátszása (Böngésző beépített hangszintetizátora)
+
         function playSound(type) {
             const synth = window.speechSynthesis;
-            if (type === 'found') {
-                const utterance = new SpeechSynthesisUtterance("Állomás elérve!");
-                utterance.lang = 'hu-HU';
-                synth.speak(utterance);
-            } else if (type === 'success') {
-                const utterance = new SpeechSynthesisUtterance("Helyes válasz, gratulálok!");
-                utterance.lang = 'hu-HU';
-                synth.speak(utterance);
-            }
+            const text = (type === 'found') ? "Állomás elérve!" : "Helyes válasz!";
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'hu-HU';
+            synth.speak(utterance);
         }
 
-// Módosított távolságfigyelő (ebbe illesztjük be a hangot)
-if (navigator.geolocation) {
-    navigator.geolocation.watchPosition(pos => {
-        targets.forEach(t => {
-            const dist = getDistance(pos.coords.latitude, pos.coords.longitude, t.lat, t.lon);
-            if (dist < t.radius) {
-                const card = document.getElementById('target' + t.id);
-                if (card.classList.contains('hidden')) {
-                    card.classList.remove('hidden');
-                    startTimer();
-                    playSound('found'); // HANGJELZÉS: Megtaláltad az állomást
-                    document.getElementById('status').innerText = "Állomás a közelben!";
-                }
-            }
-        });
-    }, null, { enableHighAccuracy: true });
-}
-
-// Módosított válaszellenőrző
-function checkAnswer(id, correct) {
-    if (document.getElementById('ans' + id).value == correct) {
-        score++;
-        document.getElementById('score').innerText = score;
-        document.getElementById('target' + id).classList.add('hidden');
-        playSound('success'); // HANGJELZÉS: Jó a válasz
-        if (score === targets.length) finishGame();
-    } else {
-        alert("Próbáld újra!");
-    }
-}
-
-       
+        function checkAnswer(id, correct) {
+            if (document.getElementById('ans' + id).value == correct) {
+                score++;
+                document.getElementById('score').innerText = score;
+                document.getElementById('target' + id).classList.add('hidden');
+                playSound('success');
+                if (score === targets.length) finishGame();
+            } else alert("Próbáld újra!");
+        }
 
         function finishGame() {
             clearInterval(timerInterval);
@@ -133,7 +137,7 @@ function checkAnswer(id, correct) {
             showLeaderboard();
             document.getElementById('finalTime').innerText = "Időd: " + formatTime(totalSeconds);
             document.getElementById('final').classList.remove('hidden');
-            document.getElementById('status').innerText = "Szép munka!";
+            document.getElementById('status').innerText = "Vége!";
         }
 
         function saveResult(time) {
@@ -157,18 +161,6 @@ function checkAnswer(id, correct) {
             const dLon = (lon2-lon1) * Math.PI/180;
             const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(pos => {
-                targets.forEach(t => {
-                    if (getDistance(pos.coords.latitude, pos.coords.longitude, t.lat, t.lon) < t.radius) {
-                        document.getElementById('target'+t.id).classList.remove('hidden');
-                        startTimer();
-                        document.getElementById('status').innerText = "Állomás a közelben!";
-                    }
-                });
-            }, null, { enableHighAccuracy: true });
         }
     </script>
 </body>
