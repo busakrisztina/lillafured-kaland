@@ -80,15 +80,52 @@
         function formatTime(s) {
             return String(Math.floor(s/60)).padStart(2,'0') + ":" + String(s%60).padStart(2,'0');
         }
-
-        function checkAnswer(id, correct) {
-            if (document.getElementById('ans'+id).value == correct) {
-                score++;
-                document.getElementById('score').innerText = score;
-                document.getElementById('target'+id).classList.add('hidden');
-                if (score === targets.length) finishGame();
-            } else alert("Próbáld újra!");
+        // Hanghatások lejátszása (Böngésző beépített hangszintetizátora)
+        function playSound(type) {
+            const synth = window.speechSynthesis;
+            if (type === 'found') {
+                const utterance = new SpeechSynthesisUtterance("Állomás elérve!");
+                utterance.lang = 'hu-HU';
+                synth.speak(utterance);
+            } else if (type === 'success') {
+                const utterance = new SpeechSynthesisUtterance("Helyes válasz, gratulálok!");
+                utterance.lang = 'hu-HU';
+                synth.speak(utterance);
+            }
         }
+
+// Módosított távolságfigyelő (ebbe illesztjük be a hangot)
+if (navigator.geolocation) {
+    navigator.geolocation.watchPosition(pos => {
+        targets.forEach(t => {
+            const dist = getDistance(pos.coords.latitude, pos.coords.longitude, t.lat, t.lon);
+            if (dist < t.radius) {
+                const card = document.getElementById('target' + t.id);
+                if (card.classList.contains('hidden')) {
+                    card.classList.remove('hidden');
+                    startTimer();
+                    playSound('found'); // HANGJELZÉS: Megtaláltad az állomást
+                    document.getElementById('status').innerText = "Állomás a közelben!";
+                }
+            }
+        });
+    }, null, { enableHighAccuracy: true });
+}
+
+// Módosított válaszellenőrző
+function checkAnswer(id, correct) {
+    if (document.getElementById('ans' + id).value == correct) {
+        score++;
+        document.getElementById('score').innerText = score;
+        document.getElementById('target' + id).classList.add('hidden');
+        playSound('success'); // HANGJELZÉS: Jó a válasz
+        if (score === targets.length) finishGame();
+    } else {
+        alert("Próbáld újra!");
+    }
+}
+
+       
 
         function finishGame() {
             clearInterval(timerInterval);
