@@ -49,119 +49,70 @@
         <button onclick="location.reload()" style="margin-top:15px">Új játék</button>
     </div>
 
-    <script>
-        const targets = [
-            { id: 1, lat: 48.1094, lon: 20.6222, radius: 25 },
-            { id: 2, lat: 48.1101, lon: 20.6235, radius: 25 }
-        ];
+    <!-- Cseréld le a teljes <script> részt erre a finomított változatra -->
+<script>
+    const targets = [
+        { id: 1, lat: 48.1094, lon: 20.6222, radius: 25 },
+        { id: 2, lat: 48.1101, lon: 20.6235, radius: 25 }
+    ];
 
-        let score = 0, startTime = null, timerInterval = null, totalSeconds = 0;
+    let score = 0, startTime = null, timerInterval = null, totalSeconds = 0;
 
-        function initGame() {
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('status').innerText = "GPS keresése...";
-            
-            // Hang aktiválása
-            const utterance = new SpeechSynthesisUtterance("Sikeres indítás");
-            utterance.lang = 'hu-HU';
-            window.speechSynthesis.speak(utterance);
+    // iOS SPECIFIKUS: A hangokat egy láthatatlan kattintással kell élesíteni
+    function initGame() {
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('status').innerText = "GPS keresése...";
 
-            // GPS indítása csak gombnyomás után (böngésző elvárás)
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(
-                    pos => {
-                        const userLat = pos.coords.latitude;
-                        const userLon = pos.coords.longitude;
-                        document.getElementById('status').innerText = `GPS OK! (Pontosság: ${Math.round(pos.coords.accuracy)}m)`;
-                        
-                        targets.forEach(t => {
-                            const dist = getDistance(userLat, userLon, t.lat, t.lon);
-                            if (dist < t.radius) {
-                                const card = document.getElementById('target' + t.id);
-                                if (card.classList.contains('hidden')) {
-                                    card.classList.remove('hidden');
-                                    startTimer();
-                                    playSound('found');
-                                }
+        // iOS HANG FIX: Az Apple csak akkor engedi a hangot, ha egy user-esemény (click) alatt hívjuk meg először
+        const synth = window.speechSynthesis;
+        const utterance = new SpeechSynthesisUtterance("Sikeres indítás");
+        utterance.lang = 'hu-HU';
+        utterance.volume = 1.0;
+        synth.speak(utterance);
+
+        // GPS indítása
+        if (navigator.geolocation) {
+            // iOS SPECIFIKUS: Különösen fontos a 'high accuracy' és a timeout beállítása
+            navigator.geolocation.watchPosition(
+                pos => {
+                    const userLat = pos.coords.latitude;
+                    const userLon = pos.coords.longitude;
+                    document.getElementById('status').innerText = `GPS OK! (Hiba: ${Math.round(pos.coords.accuracy)}m)`;
+                    
+                    targets.forEach(t => {
+                        const dist = getDistance(userLat, userLon, t.lat, t.lon);
+                        if (dist < t.radius) {
+                            const card = document.getElementById('target' + t.id);
+                            if (card.classList.contains('hidden')) {
+                                card.classList.remove('hidden');
+                                startTimer();
+                                playSound('found');
                             }
-                        });
-                    },
-                    err => {
-                        let msg = "Hiba: ";
-                        if (err.code === 1) msg += "Engedélyezd a GPS-t a lakat ikonnál!";
-                        else if (err.code === 2) msg += "Nincs jel (menj szabad ég alá!)";
-                        else msg += err.message;
-                        document.getElementById('status').innerText = msg;
-                    },
-                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-                );
-            } else {
-                document.getElementById('status').innerText = "Nincs GPS támogatás!";
-            }
+                        }
+                    });
+                },
+                err => {
+                    let msg = "GPS hiba: ";
+                    if (err.code === 1) msg = "iOS hiba: Engedélyezd a helyzetet a Beállítások > Safari-ban!";
+                    else if (err.code === 3) msg = "Időtúllépés. Próbálj szabad ég alá menni!";
+                    document.getElementById('status').innerText = msg;
+                },
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+            );
         }
+    }
 
-        function startTimer() {
-            if (startTime) return;
-            startTime = Date.now();
-            timerInterval = setInterval(() => {
-                totalSeconds = Math.floor((Date.now() - startTime) / 1000);
-                document.getElementById('timer').innerText = formatTime(totalSeconds);
-            }, 1000);
-        }
+    function playSound(type) {
+        // iOS FIX: Mindig ellenőrizzük, hogy nincs-e "beragadva" a hangszintetizátor
+        window.speechSynthesis.cancel(); 
+        const text = (type === 'found') ? "Állomás elérve!" : "Helyes válasz!";
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'hu-HU';
+        window.speechSynthesis.speak(utterance);
+    }
 
-        function formatTime(s) {
-            return String(Math.floor(s/60)).padStart(2,'0') + ":" + String(s%60).padStart(2,'0');
-        }
+    // ... a többi függvény (getDistance, checkAnswer, stb.) változatlan marad ...
+</script>
 
-        function playSound(type) {
-            const synth = window.speechSynthesis;
-            const text = (type === 'found') ? "Állomás elérve!" : "Helyes válasz!";
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'hu-HU';
-            synth.speak(utterance);
-        }
-
-        function checkAnswer(id, correct) {
-            if (document.getElementById('ans' + id).value == correct) {
-                score++;
-                document.getElementById('score').innerText = score;
-                document.getElementById('target' + id).classList.add('hidden');
-                playSound('success');
-                if (score === targets.length) finishGame();
-            } else alert("Próbáld újra!");
-        }
-
-        function finishGame() {
-            clearInterval(timerInterval);
-            saveResult(totalSeconds);
-            showLeaderboard();
-            document.getElementById('finalTime').innerText = "Időd: " + formatTime(totalSeconds);
-            document.getElementById('final').classList.remove('hidden');
-            document.getElementById('status').innerText = "Vége!";
-        }
-
-        function saveResult(time) {
-            let records = JSON.parse(localStorage.getItem('lilla_records') || "[]");
-            records.push(time);
-            records.sort((a, b) => a - b);
-            localStorage.setItem('lilla_records', JSON.stringify(records.slice(0, 5)));
-        }
-
-        function showLeaderboard() {
-            const list = document.getElementById('leaderboard');
-            const records = JSON.parse(localStorage.getItem('lilla_records') || "[]");
-            list.innerHTML = records.map((t, i) => 
-                `<li class="${i===0?'gold':''}">${i+1}. hely: ${formatTime(t)}</li>`
-            ).join('');
-        }
-
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const dLat = (lat2-lat1) * Math.PI/180;
-            const dLon = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-    </script>
 </body>
 </html>
