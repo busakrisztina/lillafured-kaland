@@ -74,23 +74,32 @@
         if (navigator.geolocation) {
             // iOS SPECIFIKUS: Különösen fontos a 'high accuracy' és a timeout beállítása
             navigator.geolocation.watchPosition(
-                pos => {
+               pos => {
                     const userLat = pos.coords.latitude;
                     const userLon = pos.coords.longitude;
-                    document.getElementById('status').innerText = `GPS OK! (Hiba: ${Math.round(pos.coords.accuracy)}m)`;
-                    
-                    targets.forEach(t => {
-                        const dist = getDistance(userLat, userLon, t.lat, t.lon);
-                        if (dist < t.radius) {
-                            const card = document.getElementById('target' + t.id);
-                            if (card.classList.contains('hidden')) {
-                                card.classList.remove('hidden');
-                                startTimer();
-                                playSound('found');
-                            }
-                        }
-                    });
-                },
+                    const accuracy = Math.round(pos.coords.accuracy);
+    
+    // Itt cseréltük le a "Hiba" szót "Pontosság"-ra:
+                    document.getElementById('status').innerHTML = `GPS OK! <br><small>Pontosság: ${accuracy} méter</small>`;
+    
+    targets.forEach(t => {
+        const dist = getDistance(userLat, userLon, t.lat, t.lon);
+        if (dist < t.radius) {
+            const card = document.getElementById('target' + t.id);
+            if (card.classList.contains('hidden')) {
+                card.classList.remove('hidden');
+                startTimer();
+                
+                // REZGÉS: 200ms rezgés, ha állomáshoz érsz (Androidon és újabb iPhone-okon)
+                if (navigator.vibrate) navigator.vibrate(200); 
+                
+                playSound('found');
+                document.getElementById('status').innerText = "Állomás elérve!";
+            }
+        }
+    });
+},
+
                 err => {
                     let msg = "GPS hiba: ";
                     if (err.code === 1) msg = "iOS hiba: Engedélyezd a helyzetet a Beállítások > Safari-ban!";
